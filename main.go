@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -154,7 +156,7 @@ func (h *Hexagram) InterpretZhuXi() string {
 		}
 		return fmt.Sprintf("參考本卦的第 %d 爻（上爻為主爻，第 %d 爻為參照爻）", upper, lower)
 	case 3:
-		return "參考變卦卦辭（以本卦為參考）。"
+		return "參考變卦卦辭（以本卦為輔助）。"
 	case 4:
 		// Find two non-moving lines, take the lower one as primary
 		staticLines := h.findStaticLines()
@@ -243,9 +245,18 @@ func prettyPrintLine(l Line) (string, string) {
 	}
 }
 
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+
 func main() {
 	seed := time.Now().UnixNano()
-	fmt.Printf("模擬蓍草占卜 (每爻三變；每變都做四營)。seed=%d\n\n", seed)
+	var raw string
+
+	info := fmt.Sprintf("模擬蓍草占卜 (每爻三變；每變都做四營)。seed=%d\n\n", seed)
+	raw += info
 
 	hex, err := generateHexagram(49, seed)
 	if err != nil {
@@ -253,32 +264,54 @@ func main() {
 	}
 
 	// 由上到下印出本卦（第6爻在上）
-	fmt.Println("=== 本卦 (由上到下) ===")
+	info = "=== 本卦 (由上到下) ===\n"
+	raw += info
+
 	for i := 5; i >= 0; i-- {
 		desc, bar := prettyPrintLine(hex.Original[i])
-		fmt.Printf("第%d爻: %s\t%s\n", i+1, desc, bar)
+		info = fmt.Sprintf("第%d爻: %s\t%s\n", i+1, desc, bar)
+		raw += info
 	}
-	fmt.Println()
+	raw += "\n"
 
-	fmt.Println("=== 之卦 / 變卦 (由上到下) ===")
+	info = "=== 之卦 / 變卦 (由上到下) ===\n"
+	raw += info
+
 	for i := 5; i >= 0; i-- {
 		desc, bar := prettyPrintLine(hex.Changed[i])
-		fmt.Printf("第%d爻: %s\t%s\n", i+1, desc, bar)
+		info = fmt.Sprintf("第%d爻: %s\t%s\n", i+1, desc, bar)
+		raw += info
 	}
-	fmt.Println()
+	raw += "\n"
 
 	// 同時輸出由下而上的數列（方便與傳統記錄對應）
-	fmt.Println("=== 本卦（由下到上、數值） ===")
-	for i := 0; i < 6; i++ {
-		fmt.Printf("%d ", hex.Original[i])
-	}
-	fmt.Println("\n=== 之卦（由下到上、數值） ===")
-	for i := 0; i < 6; i++ {
-		fmt.Printf("%d ", hex.Changed[i])
-	}
-	fmt.Println()
+	info = "=== 本卦（由下到上、數值） ===\n"
+	raw += info
 
-	fmt.Println("\n=== 爻變 ===")
-	fmt.Println(hex.InterpretZhuXi())
-	fmt.Println()
+	for i := 0; i < 6; i++ {
+		info = fmt.Sprintf("%d ", hex.Original[i])
+		raw += info
+	}
+	info = ("\n=== 之卦（由下到上、數值） ===\n")
+	raw += info
+
+	for i := 0; i < 6; i++ {
+		info = fmt.Sprintf("%d ", hex.Changed[i])
+		raw += info
+	}
+	raw += "\n"
+
+	info = ("\n=== 爻變 ===\n")
+	raw += info
+	info = (hex.InterpretZhuXi()) + "\n"
+	raw += info
+	raw += "\n"
+
+	fmt.Println(raw)
+
+	data := []byte(raw)
+	fileName := fmt.Sprintf("hexagram_%d", time.Now().UTC().Unix())
+	path := filepath.Join("temp", fileName)
+	err = os.WriteFile(path, data, 0644)
+	check(err)
 }
