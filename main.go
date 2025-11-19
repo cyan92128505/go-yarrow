@@ -16,6 +16,12 @@ const (
 	OldYang   Line = 9
 )
 
+type Hexagram struct {
+	Original    []Line
+	Changed     []Line
+	MovingLines []int
+}
+
 // doFourOps 在「一變（四營）」時，對當前 stalks 執行一次分二、掛一、揲四、歸奇
 // 回傳新合併後剩餘的 stalks（已扣除取出的那些）
 func doFourOps(stalks int, rnd *rand.Rand) int {
@@ -88,34 +94,137 @@ func makeOneLine(initial int, rnd *rand.Rand) (Line, int) {
 // generateHexagram 產生一個本卦（由下而上，第一爻最下面）
 // initialStalks 一般為 49
 // seed 若為 0，會用 time.Now().UnixNano()
-func generateHexagram(initialStalks int, seed int64) ([]Line, []Line, error) {
+func generateHexagram(initialStalks int, seed int64) (*Hexagram, error) {
 	if initialStalks <= 0 {
-		return nil, nil, fmt.Errorf("initialStalks 必須 > 0")
+		return nil, fmt.Errorf("initialStalks 必須 > 0")
 	}
 	if seed == 0 {
 		seed = time.Now().UnixNano()
 	}
 	rnd := rand.New(rand.NewSource(seed))
 
-	lines := make([]Line, 0, 6)
+	hex := &Hexagram{
+		Original:    make([]Line, 0, 6),
+		Changed:     make([]Line, 6),
+		MovingLines: make([]int, 0, 6),
+	}
+
 	// 每爻都從 49 開始（說明內提到：再將49策合成一堆，「太極」不動，再做三變）
 	for i := 0; i < 6; i++ {
 		line, _ := makeOneLine(initialStalks, rnd)
-		lines = append(lines, line) // 由下而上順序 append
+		hex.Original = append(hex.Original, line) // 由下而上順序 append
 	}
 
-	// 計算之卦（變卦）：九->陰、六->陽，其餘不變（7、8 不變）
-	changeLines := make([]Line, 6)
-	for i, l := range lines {
-		if l == OldYang { // 9 -> 變為陰 (畫成兩橫)
-			changeLines[i] = OldYin // 6
-		} else if l == OldYin { // 6 -> 變為陽 (畫成一橫)
-			changeLines[i] = OldYang // 9
-		} else {
-			changeLines[i] = l
+	// 計算之卦（變卦）：九(老陽)->八(少陰)、六(老陰)->七(少陽)，其餘不變（7、8 不變）
+	for i, line := range hex.Original {
+		switch line {
+		case OldYang: // 9 -> 變為陰 (畫成兩橫)
+			hex.Changed[i] = YoungYin
+			hex.MovingLines = append(hex.MovingLines, i+1)
+		case OldYin: // // 6 -> 變為陽 (畫成一橫)
+			hex.Changed[i] = YoungYang
+			hex.MovingLines = append(hex.MovingLines, i+1)
+		default:
+			hex.Changed[i] = line
 		}
 	}
-	return lines, changeLines, nil
+
+	return hex, nil
+}
+
+func (h *Hexagram) InterpretZhuXi() string {
+	n := len(h.MovingLines)
+
+	switch n {
+	case 0:
+		return "參考本卦卦辭"
+	case 1:
+		return fmt.Sprintf("參考本卦變爻爻辭: 第 %d 爻", h.MovingLines[0])
+	case 2:
+		// Take the upper moving line as primary
+		upper := h.MovingLines[0]
+		lower := h.MovingLines[0]
+		for _, pos := range h.MovingLines {
+			if pos > upper {
+				upper = pos
+			}
+			if pos < lower {
+				lower = pos
+			}
+		}
+		return fmt.Sprintf("參考本卦的第 %d 爻（上爻為主爻，第 %d 爻為參照爻）", upper, lower)
+	case 3:
+		return "參考變卦卦辭（以本卦為參考）。"
+	case 4:
+		// Find two non-moving lines, take the lower one as primary
+		staticLines := h.findStaticLines()
+		lower := staticLines[0]
+		upper := staticLines[0]
+		for _, pos := range staticLines {
+			if pos < lower {
+				lower = pos
+			}
+			if pos > upper {
+				upper = pos
+			}
+		}
+		return fmt.Sprintf("參考變卦的第 %d 爻 (變卦下不變爻爻辭, 上不變爻可參考: 第 %d 爻)", lower, upper)
+	case 5:
+		// Only one static line remains
+		staticLines := h.findStaticLines()
+		return fmt.Sprintf("變卦唯一不變爻爻辭: 第 %d 爻", staticLines[0])
+	case 6:
+		// All lines moving
+		if h.isQianOrKun() {
+			if h.isAllYang() {
+				return "參考乾卦:用九"
+			}
+			return "參考坤卦:用六"
+		}
+		return "參考變卦卦辭"
+	}
+
+	return ""
+}
+
+func (h *Hexagram) findStaticLines() []int {
+	staticMap := make(map[int]bool)
+	for i := 1; i <= 6; i++ {
+		staticMap[i] = true
+	}
+	for _, pos := range h.MovingLines {
+		delete(staticMap, pos)
+	}
+
+	static := make([]int, 0, 6-len(h.MovingLines))
+	for i := 1; i <= 6; i++ {
+		if staticMap[i] {
+			static = append(static, i)
+		}
+	}
+	return static
+}
+
+func (h *Hexagram) isQianOrKun() bool {
+	return h.isAllYang() || h.isAllYin()
+}
+
+func (h *Hexagram) isAllYang() bool {
+	for _, line := range h.Original {
+		if line == OldYin || line == YoungYin {
+			return false
+		}
+	}
+	return true
+}
+
+func (h *Hexagram) isAllYin() bool {
+	for _, line := range h.Original {
+		if line == OldYang || line == YoungYang {
+			return false
+		}
+	}
+	return true
 }
 
 // prettyPrintLine 把 Line 轉成人易看得文字與符號（陽: 一、陰: - -）
@@ -138,7 +247,7 @@ func main() {
 	seed := time.Now().UnixNano()
 	fmt.Printf("模擬蓍草占卜 (每爻三變；每變都做四營)。seed=%d\n\n", seed)
 
-	lines, changeLines, err := generateHexagram(49, seed)
+	hex, err := generateHexagram(49, seed)
 	if err != nil {
 		panic(err)
 	}
@@ -146,14 +255,14 @@ func main() {
 	// 由上到下印出本卦（第6爻在上）
 	fmt.Println("=== 本卦 (由上到下) ===")
 	for i := 5; i >= 0; i-- {
-		desc, bar := prettyPrintLine(lines[i])
+		desc, bar := prettyPrintLine(hex.Original[i])
 		fmt.Printf("第%d爻: %s\t%s\n", i+1, desc, bar)
 	}
 	fmt.Println()
 
 	fmt.Println("=== 之卦 / 變卦 (由上到下) ===")
 	for i := 5; i >= 0; i-- {
-		desc, bar := prettyPrintLine(changeLines[i])
+		desc, bar := prettyPrintLine(hex.Changed[i])
 		fmt.Printf("第%d爻: %s\t%s\n", i+1, desc, bar)
 	}
 	fmt.Println()
@@ -161,11 +270,15 @@ func main() {
 	// 同時輸出由下而上的數列（方便與傳統記錄對應）
 	fmt.Println("=== 本卦（由下到上、數值） ===")
 	for i := 0; i < 6; i++ {
-		fmt.Printf("%d ", lines[i])
+		fmt.Printf("%d ", hex.Original[i])
 	}
 	fmt.Println("\n=== 之卦（由下到上、數值） ===")
 	for i := 0; i < 6; i++ {
-		fmt.Printf("%d ", changeLines[i])
+		fmt.Printf("%d ", hex.Changed[i])
 	}
+	fmt.Println()
+
+	fmt.Println("\n=== 爻變 ===")
+	fmt.Println(hex.InterpretZhuXi())
 	fmt.Println()
 }
