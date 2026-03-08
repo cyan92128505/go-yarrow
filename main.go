@@ -165,8 +165,22 @@ func main() {
 	app := drift.NewApp(yarrowApp{})
 
 	app.OnInit = func(ctx context.Context) error {
-		store = NewRecordStore()
-		log.Println("蓍草占卜 App 初始化完成")
+		// 先建立空的 observable，讓 home 頁能正常渲染
+		recordsObservable = core.NewObservable([]*DivinationRecord{})
+		store = &RecordStore{}
+
+		go func() {
+			docsPath, _ := platform.Storage.GetAppDirectory(platform.AppDirectoryDocuments)
+			drift.Dispatch(func() {
+				if docsPath != "" {
+					store.dataDir = docsPath
+				}
+				store.load()
+				recordsObservable.Set(store.All())
+				log.Printf("RecordStore ready: %d records from %s", store.Count(), store.dataDir)
+			})
+		}()
+
 		return nil
 	}
 

@@ -3,6 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -96,30 +99,53 @@ func (s *RecordStore) filePath() string {
 	return recordsFileName
 }
 
-func (s *RecordStore) load() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	data, err := platform.Storage.ReadFile(s.filePath())
-	if err != nil {
-		s.records = make([]*DivinationRecord, 0)
-		return
-	}
-
-	var records []*DivinationRecord
-	if err := json.Unmarshal(data, &records); err != nil {
-		s.records = make([]*DivinationRecord, 0)
-		return
-	}
-	s.records = records
-}
-
 func (s *RecordStore) save() error {
 	data, err := json.MarshalIndent(s.records, "", "  ")
 	if err != nil {
 		return err
 	}
-	return platform.Storage.WriteFile(s.filePath(), data)
+
+	path := s.filePath()
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		log.Printf("RecordStore mkdir error: %v", err)
+		return err
+	}
+
+	// 原子寫入：先寫 tmp 再 rename
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err != nil {
+		log.Printf("RecordStore write error: %v", err)
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		log.Printf("RecordStore rename error: %v", err)
+		return err
+	}
+	log.Printf("RecordStore saved %d records (%d bytes)", len(s.records), len(data))
+	return nil
+}
+
+func (s *RecordStore) load() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	path := s.filePath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		log.Printf("RecordStore load: %v", err)
+		s.records = make([]*DivinationRecord, 0)
+		return
+	}
+	log.Printf("RecordStore load: read %d bytes", len(data))
+
+	var records []*DivinationRecord
+	if err := json.Unmarshal(data, &records); err != nil {
+		log.Printf("RecordStore load: unmarshal error: %v", err)
+		s.records = make([]*DivinationRecord, 0)
+		return
+	}
+	log.Printf("RecordStore loaded %d records", len(records))
+	s.records = records
 }
 
 // Add inserts a record and persists.
