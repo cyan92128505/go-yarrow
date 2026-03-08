@@ -458,7 +458,9 @@ func (s *resultState) confirmDelete(ctx core.BuildContext, colors theme.ColorSch
 									// Go back to home
 
 									if nav := navigation.NavigatorOf(ctx); nav != nil {
-										nav.Pop(nil)
+										nav.PopUntil(func(r navigation.Route) bool {
+											return r.Settings().Name == "/"
+										})
 									}
 								},
 								Child: widgets.Container{
