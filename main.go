@@ -19,24 +19,24 @@ import (
 // Global record store, initialized in OnInit.
 var store *RecordStore
 
-// yijingApp is the root widget.
-type yijingApp struct{ core.StatefulBase }
+// yarrowApp is the root widget.
+type yarrowApp struct{ core.StatefulBase }
 
-func (yijingApp) CreateState() core.State { return &yijingAppState{} }
+func (yarrowApp) CreateState() core.State { return &yarrowAppState{} }
 
-type yijingAppState struct {
+type yarrowAppState struct {
 	core.StateBase
 	isDark          bool
 	isCupertino     bool
 	cachedThemeData *theme.AppThemeData
 }
 
-func (s *yijingAppState) InitState() {
+func (s *yarrowAppState) InitState() {
 	s.isDark = true
 	s.updateSystemUI()
 }
 
-func (s *yijingAppState) Build(ctx core.BuildContext) core.Widget {
+func (s *yarrowAppState) Build(ctx core.BuildContext) core.Widget {
 	appThemeData := s.getThemeData()
 	routes := s.buildRoutes()
 
@@ -52,7 +52,7 @@ func (s *yijingAppState) Build(ctx core.BuildContext) core.Widget {
 	}
 }
 
-func (s *yijingAppState) buildRoutes() []navigation.ScreenRoute {
+func (s *yarrowAppState) buildRoutes() []navigation.ScreenRoute {
 	return []navigation.ScreenRoute{
 		{
 			Path: "/",
@@ -92,7 +92,7 @@ func extractIDFromPath(path string) string {
 	return ""
 }
 
-func (s *yijingAppState) getThemeData() *theme.AppThemeData {
+func (s *yarrowAppState) getThemeData() *theme.AppThemeData {
 	targetPlatform := theme.TargetPlatformMaterial
 	if s.isCupertino {
 		targetPlatform = theme.TargetPlatformCupertino
@@ -131,7 +131,7 @@ func (s *yijingAppState) getThemeData() *theme.AppThemeData {
 	return s.cachedThemeData
 }
 
-func (s *yijingAppState) updateSystemUI() {
+func (s *yarrowAppState) updateSystemUI() {
 	themeData := s.getThemeData()
 	statusStyle := platform.StatusBarStyleDark
 	if s.isDark {
@@ -162,7 +162,7 @@ func buildErrorPage(ctx core.BuildContext, settings navigation.RouteSettings) co
 }
 
 func main() {
-	app := drift.NewApp(yijingApp{})
+	app := drift.NewApp(yarrowApp{})
 
 	app.OnInit = func(ctx context.Context) error {
 		store = NewRecordStore()
