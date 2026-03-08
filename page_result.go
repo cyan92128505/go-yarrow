@@ -91,7 +91,11 @@ func (s *resultState) buildAppBar(ctx core.BuildContext, colors theme.ColorSchem
 			Children: []core.Widget{
 				widgets.GestureDetector{
 					OnTap: func() {
-
+						if nav := navigation.NavigatorOf(ctx); nav != nil {
+							nav.PopUntil(func(r navigation.Route) bool {
+								return r.Settings().Name == "/"
+							})
+						}
 					},
 					Child: widgets.Container{
 						Padding: layout.EdgeInsets{Right: 16, Top: 4, Bottom: 4},

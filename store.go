@@ -7,8 +7,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-drift/drift/pkg/core"
 	"github.com/go-drift/drift/pkg/platform"
 )
+
+var recordsObservable *core.Observable[[]*DivinationRecord]
 
 // DivinationRecord 單筆占卜記錄
 type DivinationRecord struct {
@@ -16,8 +19,8 @@ type DivinationRecord struct {
 	Question  string    `json:"question"`
 	CreatedAt time.Time `json:"created_at"`
 	Seed      int64     `json:"seed"`
-	Original  []int     `json:"original"`  // Line values: 6,7,8,9
-	Changed   []int     `json:"changed"`   // Line values after transformation
+	Original  []int     `json:"original"`   // Line values: 6,7,8,9
+	Changed   []int     `json:"changed"`    // Line values after transformation
 	MovingPos []int     `json:"moving_pos"` // 1-based positions of moving lines
 	Interpret string    `json:"interpret"`  // 朱熹法解卦結果
 }
@@ -75,6 +78,7 @@ const recordsFileName = "divination_records.json"
 func NewRecordStore() *RecordStore {
 	s := &RecordStore{}
 	s.load()
+	recordsObservable = core.NewObservable(s.All())
 	return s
 }
 
@@ -122,9 +126,10 @@ func (s *RecordStore) save() error {
 func (s *RecordStore) Add(record *DivinationRecord) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	// Prepend (newest first)
 	s.records = append([]*DivinationRecord{record}, s.records...)
-	return s.save()
+	err := s.save()
+	recordsObservable.Set(s.allUnsafe()) // 通知訂閱者
+	return err
 }
 
 // Delete removes a record by ID and persists.
@@ -134,7 +139,9 @@ func (s *RecordStore) Delete(id string) error {
 	for i, r := range s.records {
 		if r.ID == id {
 			s.records = append(s.records[:i], s.records[i+1:]...)
-			return s.save()
+			err := s.save()
+			recordsObservable.Set(s.allUnsafe()) // 通知訂閱者
+			return err
 		}
 	}
 	return nil
@@ -169,4 +176,13 @@ func (s *RecordStore) FindByID(id string) *DivinationRecord {
 		}
 	}
 	return nil
+}
+
+func (s *RecordStore) allUnsafe() []*DivinationRecord {
+	result := make([]*DivinationRecord, len(s.records))
+	copy(result, s.records)
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.After(result[j].CreatedAt)
+	})
+	return result
 }

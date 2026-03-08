@@ -7,7 +7,6 @@ import (
 	"github.com/go-drift/drift/pkg/graphics"
 	"github.com/go-drift/drift/pkg/layout"
 	"github.com/go-drift/drift/pkg/navigation"
-	"github.com/go-drift/drift/pkg/platform"
 	"github.com/go-drift/drift/pkg/theme"
 	"github.com/go-drift/drift/pkg/widgets"
 )
@@ -19,27 +18,15 @@ func (homePage) CreateState() core.State { return &homeState{} }
 
 type homeState struct {
 	core.StateBase
-	records *core.Managed[[]*DivinationRecord]
 }
 
 func (s *homeState) InitState() {
-	s.records = core.NewManaged(s, store.All())
-
-	// Refresh records when app resumes (covers returning from other pages)
-	platform.UseLifecycleObserver(s, func(state platform.LifecycleState) {
-		if state == platform.LifecycleStateResumed {
-			s.refreshRecords()
-		}
-	})
-}
-
-func (s *homeState) refreshRecords() {
-	s.records.Set(store.All())
+	core.UseObservable(s, recordsObservable)
 }
 
 func (s *homeState) Build(ctx core.BuildContext) core.Widget {
 	colors := theme.ColorsOf(ctx)
-	allRecords := s.records.Value()
+	allRecords := recordsObservable.Value()
 
 	// App bar
 	appBar := widgets.Container{
