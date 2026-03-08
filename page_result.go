@@ -229,7 +229,7 @@ func (s *resultState) buildLineRow(colors theme.ColorScheme, lineNum int, line L
 			widgets.HSpace(10),
 			// Line symbol (centered, monospaced-like)
 			widgets.SizedBox{
-				Width: 80,
+				Width: 100,
 				Child: widgets.Text{
 					Content: line.Symbol(),
 					Align:   graphics.TextAlignCenter,

@@ -31,7 +31,7 @@ func (l Line) Symbol() string {
 	if l.IsYang() {
 		return "━━━━━"
 	}
-	return "━━ ━━"
+	return "━━　━━"
 }
 
 // Label returns description like "老陽 (9)".
@@ -258,4 +258,47 @@ func (h *Hexagram) ToShareText(question string, createdAt time.Time) string {
 
 	text += "\n" + h.InterpretZhuXi() + "\n"
 	return text
+}
+
+// hexagramUnicode 從六爻（由下到上）產生卦象 Unicode 符號
+func hexagramUnicode(lines []Line) string {
+	// 六爻轉為上下卦的三位二進位（陽=1, 陰=0）
+	// lines[0] 是初爻（最下），lines[5] 是上爻
+	upper := trigramIndex(lines[0], lines[1], lines[2])
+	lower := trigramIndex(lines[3], lines[4], lines[5])
+
+	// 八卦順序：坤(0) 剝(1)... 用 King Wen 序查表
+	// 行=上卦，列=下卦，值=King Wen 序號（0-based）
+	// 卦序：乾☰=111, 兌☱=110, 離☲=101, 震☳=100, 巽☴=011, 坎☵=010, 艮☶=001, 坤☷=000
+	kingWen := [8][8]int{
+		//  坤   艮   坎   巽   震   離   兌   乾    ← lower trigram
+		{1, 23, 8, 20, 16, 35, 45, 12},   // 坤 upper
+		{15, 52, 39, 53, 62, 56, 31, 33}, // 艮
+		{7, 4, 29, 59, 40, 64, 47, 6},    // 坎
+		{46, 18, 48, 57, 32, 50, 28, 44}, // 巽
+		{24, 27, 3, 42, 51, 21, 17, 25},  // 震
+		{36, 22, 63, 37, 55, 30, 49, 13}, // 離
+		{19, 41, 60, 61, 54, 38, 58, 10}, // 兌
+		{2, 26, 5, 9, 34, 14, 43, 11},    // 乾
+	}
+
+	num := kingWen[upper][lower] // 1-based King Wen 序
+	return string(rune(0x4DC0 + num - 1))
+}
+
+// trigramIndex 將三爻轉為 0-7 的索引
+// 坤=000(0), 艮=001(1), 坎=010(2), 巽=011(3),
+// 震=100(4), 離=101(5), 兌=110(6), 乾=111(7)
+func trigramIndex(bottom, middle, top Line) int {
+	idx := 0
+	if bottom.IsYang() {
+		idx |= 4
+	}
+	if middle.IsYang() {
+		idx |= 2
+	}
+	if top.IsYang() {
+		idx |= 1
+	}
+	return idx
 }

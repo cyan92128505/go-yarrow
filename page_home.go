@@ -156,21 +156,7 @@ func (s *homeState) buildRecordList(ctx core.BuildContext, colors theme.ColorSch
 func (s *homeState) buildRecordCard(ctx core.BuildContext, colors theme.ColorScheme, record *DivinationRecord) core.Widget {
 	hex := record.ToHexagram()
 
-	// Build mini hexagram display (6 lines, top to bottom)
-	miniLines := make([]core.Widget, 0, 6)
-	for i := 5; i >= 0; i-- {
-		lineColor := colors.OnSurfaceVariant
-		if hex.Original[i].IsMoving() {
-			lineColor = colorMovingMarker
-		}
-		miniLines = append(miniLines, widgets.Text{
-			Content: hex.Original[i].Symbol(),
-			Style: graphics.TextStyle{
-				Color:    lineColor,
-				FontSize: 8,
-			},
-		})
-	}
+	hexSymbol := hexagramUnicode(hex.Original)
 
 	// Question text (truncated)
 	questionText := record.Question
@@ -200,12 +186,13 @@ func (s *homeState) buildRecordCard(ctx core.BuildContext, colors theme.ColorSch
 						Height:       64,
 						Color:        colors.SurfaceVariant,
 						BorderRadius: 8,
-						Padding:      layout.EdgeInsetsAll(6),
 						Alignment:    layout.AlignmentCenter,
-						Child: widgets.Column{
-							MainAxisAlignment: widgets.MainAxisAlignmentCenter,
-							MainAxisSize:      widgets.MainAxisSizeMin,
-							Children:          miniLines,
+						Child: widgets.Text{
+							Content: hexSymbol,
+							Style: graphics.TextStyle{
+								Color:    colors.OnSurface,
+								FontSize: 32,
+							},
 						},
 					},
 					widgets.HSpace(14),
